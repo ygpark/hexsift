@@ -147,10 +147,8 @@ impl ProgressIndicator {
 
     /// Check if progress should be shown based on output destination
     pub fn should_show_progress() -> bool {
-        // Show progress only if stderr is a terminal (not redirected to file)
-        use std::os::unix::io::AsRawFd;
-        let stderr_fd = io::stderr().as_raw_fd();
-        unsafe { libc::isatty(stderr_fd) != 0 }
+        use std::io::IsTerminal;
+        io::stderr().is_terminal()
     }
 
     /// Check if output should be silenced (when progress is enabled)

@@ -322,7 +322,10 @@ fn test_multi_file_nonexistent_pattern() {
     let binary_path = get_binary_path();
 
     // Use a glob pattern that matches no files
-    let nonexistent_pattern = "/tmp/definitely_nonexistent_pattern_*.bin";
+    let temp_dir = std::env::temp_dir();
+    let nonexistent_pattern = format!("{}{}definitely_nonexistent_pattern_*.bin",
+        temp_dir.display(), std::path::MAIN_SEPARATOR);
+    let nonexistent_pattern = nonexistent_pattern.as_str();
 
     let output = Command::new(&binary_path)
         .arg(nonexistent_pattern)

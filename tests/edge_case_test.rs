@@ -190,7 +190,8 @@ fn test_single_byte_file() {
 #[test]
 fn test_non_existent_file() {
     let binary_path = get_binary_path();
-    let non_existent_path = "/tmp/bingrep_non_existent_file_12345.bin";
+    let non_existent_path = std::env::temp_dir().join("bingrep_non_existent_file_12345.bin");
+    let non_existent_path = non_existent_path.to_str().unwrap();
 
     let output = Command::new(&binary_path)
         .arg(non_existent_path)
@@ -206,6 +207,8 @@ fn test_non_existent_file() {
         stderr.contains("No such file")
             || stderr.contains("not found")
             || stderr.contains("찾을 수 없")
+            || stderr.contains("NotFound")
+            || stderr.contains("cannot find")
     );
 }
 
