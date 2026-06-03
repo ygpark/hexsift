@@ -34,6 +34,12 @@ impl Config {
             return Err(BingrepError::InvalidWidth(cli.line_width));
         }
 
+        if cli.chunk_size == 0 {
+            return Err(BingrepError::InvalidPattern(
+                "Chunk size must be greater than 0".to_string(),
+            ));
+        }
+
         // Validate chunk size doesn't exceed memory limits
         if cli.chunk_size > self.max_memory_usage / 4 {
             return Err(BingrepError::InvalidPattern(format!(
@@ -41,6 +47,16 @@ impl Config {
                 cli.chunk_size,
                 self.max_memory_usage / 4
             )));
+        }
+
+        if let Some(overlap_size) = cli.overlap_size {
+            if overlap_size > self.max_memory_usage / 4 {
+                return Err(BingrepError::InvalidPattern(format!(
+                    "Overlap size {} too large, maximum allowed: {}",
+                    overlap_size,
+                    self.max_memory_usage / 4
+                )));
+            }
         }
 
         // Validate limit (must be non-negative, but usize ensures this)

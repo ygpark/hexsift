@@ -43,6 +43,7 @@ impl MultiFileProcessor {
         show_offset: bool,
         parallel: bool,
         chunk_size: usize,
+        overlap_size: Option<usize>,
         global_limit: usize,
     ) -> Result<()> {
         let paths = glob(pattern)?;
@@ -67,6 +68,7 @@ impl MultiFileProcessor {
                 show_offset,
                 parallel,
                 chunk_size,
+                overlap_size,
             )?;
 
             total_processed += processed_count;
@@ -105,6 +107,7 @@ impl MultiFileProcessor {
         show_offset: bool,
         parallel: bool,
         chunk_size: usize,
+        overlap_size: Option<usize>,
         global_limit: usize,
     ) -> Result<()> {
         let mut total_processed = 0;
@@ -134,6 +137,7 @@ impl MultiFileProcessor {
                 show_offset,
                 parallel,
                 chunk_size,
+                overlap_size,
             )?;
 
             total_processed += processed_count;
@@ -160,6 +164,7 @@ impl MultiFileProcessor {
         show_offset: bool,
         parallel: bool,
         chunk_size: usize,
+        explicit_overlap_size: Option<usize>,
     ) -> Result<usize> {
         if is_forensic_image_path(path)? {
             let mut processor = FileProcessor::new(self.config.clone());
@@ -167,8 +172,7 @@ impl MultiFileProcessor {
 
             if let Some(expr) = expression {
                 let regex = RegexProcessor::compile_pattern(expr)?;
-                let overlap_size =
-                    RegexProcessor::overlap_for_expression(expr, self.config.buffer_padding);
+                let overlap_size = self.overlap_for_stream(expr, explicit_overlap_size);
                 processor.process_stream_by_regex_from_path(
                     path,
                     &regex,
@@ -199,13 +203,12 @@ impl MultiFileProcessor {
         if let Some(expr) = expression {
             // Regex search mode
             let regex = RegexProcessor::compile_pattern(expr)?;
-            let stream_overlap =
-                RegexProcessor::overlap_for_expression(expr, self.config.buffer_padding);
-            let parallel_overlap =
-                RegexProcessor::overlap_for_expression(expr, 1024.min(chunk_size / 10));
             let matches_before = Self::count_matches_in_output();
 
             if parallel && file_size > chunk_size as u64 {
+                let parallel_overlap =
+                    self.overlap_for_parallel(expr, chunk_size, explicit_overlap_size);
+
                 ParallelProcessor::process_file_parallel(
                     &mut file,
                     &regex,
@@ -218,6 +221,8 @@ impl MultiFileProcessor {
                     parallel_overlap,
                 )?;
             } else {
+                let stream_overlap = self.overlap_for_stream(expr, explicit_overlap_size);
+
                 let mut processor = FileProcessor::new(self.config.clone());
                 let mut progress = ProgressIndicator::disabled();
                 processor.process_stream_by_regex(
@@ -296,6 +301,7 @@ impl MultiFileProcessor {
         show_offset: bool,
         parallel_processing: bool,
         chunk_size: usize,
+        overlap_size: Option<usize>,
     ) -> Result<()> {
         use rayon::prelude::*;
 
@@ -319,6 +325,7 @@ impl MultiFileProcessor {
                     show_offset,
                     parallel_processing,
                     chunk_size,
+                    overlap_size,
                 )
                 .map(|_| ())
             })
@@ -330,5 +337,41 @@ impl MultiFileProcessor {
         }
 
         Ok(())
+    }
+
+    fn overlap_for_stream(&self, expression: &str, explicit_overlap: Option<usize>) -> usize {
+        let default_overlap = explicit_overlap.unwrap_or(self.config.buffer_padding);
+        let overlap = RegexProcessor::overlap_for_expression(expression, default_overlap);
+        Self::warn_for_large_overlap(overlap, default_overlap, explicit_overlap.is_some());
+        overlap
+    }
+
+    fn overlap_for_parallel(
+        &self,
+        expression: &str,
+        chunk_size: usize,
+        explicit_overlap: Option<usize>,
+    ) -> usize {
+        let default_overlap =
+            explicit_overlap.unwrap_or(self.config.buffer_padding.min(chunk_size / 10));
+        let overlap = RegexProcessor::overlap_for_expression(expression, default_overlap);
+        Self::warn_for_large_overlap(overlap, default_overlap, explicit_overlap.is_some());
+        overlap
+    }
+
+    fn warn_for_large_overlap(overlap: usize, default_overlap: usize, explicit_overlap: bool) {
+        const LARGE_OVERLAP_WARNING_THRESHOLD: usize = 64 * 1024;
+
+        if overlap > LARGE_OVERLAP_WARNING_THRESHOLD && overlap > default_overlap {
+            eprintln!(
+                "Warning: pattern requires {} bytes of overlap; consider increasing --chunk-size for parallel searches.",
+                overlap
+            );
+        } else if explicit_overlap && overlap > LARGE_OVERLAP_WARNING_THRESHOLD {
+            eprintln!(
+                "Warning: using large overlap size {} bytes; this may increase memory and duplicate scanning work.",
+                overlap
+            );
+        }
     }
 }

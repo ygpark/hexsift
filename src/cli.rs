@@ -57,6 +57,10 @@ pub struct Cli {
     #[arg(long = "chunk-size", default_value = "16777216")]
     pub chunk_size: usize,
 
+    /// 복잡한 정규식의 경계 검색 overlap 크기 (바이트 단위, 기본값: 8KB)
+    #[arg(long = "overlap-size")]
+    pub overlap_size: Option<usize>,
+
     /// 다중 파일 모드 (glob 패턴 또는 여러 파일 처리)
     #[arg(short = 'm', long = "multi")]
     pub multi_file: bool,

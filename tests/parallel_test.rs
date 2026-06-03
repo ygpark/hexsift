@@ -158,6 +158,46 @@ fn test_parallel_uses_dynamic_overlap_for_long_hex_pattern() {
 }
 
 #[test]
+fn test_parallel_complex_regex_uses_8kb_fallback_overlap() {
+    let binary_path = get_binary_path();
+    let chunk_size = 131072usize;
+    let pattern_start = chunk_size - 500;
+
+    let mut test_data = vec![0xFF; pattern_start];
+    test_data.extend_from_slice(&vec![0x00; 2000]);
+    test_data.push(0x01);
+    test_data.extend_from_slice(&[0xFF; 100]);
+    let test_file = create_test_file(&test_data, "complex_overlap_fallback");
+
+    let output = Command::new(&binary_path)
+        .arg(&test_file)
+        .arg("-e")
+        .arg("\\x00{2000}\\x01")
+        .arg("-w")
+        .arg("16")
+        .arg("--parallel")
+        .arg("--chunk-size")
+        .arg(chunk_size.to_string())
+        .output()
+        .expect("Failed to execute parallel command");
+
+    assert!(output.status.success(), "Parallel search failed");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(
+        stdout.lines().count(),
+        1,
+        "Expected one complex regex boundary match"
+    );
+    assert!(
+        stdout.contains("00 00 00 00 00 00 00 00"),
+        "Expected NULL byte pattern output"
+    );
+
+    fs::remove_file(test_file).ok();
+}
+
+#[test]
 fn test_parallel_hex_dump() {
     let binary_path = get_binary_path();
 

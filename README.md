@@ -55,6 +55,8 @@ hexsift file.bin -w 8
 | `-t, --separator <STR>` | 바이트 구분자 (기본값: 공백)          |
 | `--no-offset`           | 오프셋 숨기기                         |
 | `--parallel`            | 병렬 처리 활성화                      |
+| `--chunk-size <N>`      | 병렬 처리 청크 크기 (기본값: 16MB)    |
+| `--overlap-size <N>`    | 복잡한 정규식 경계 검색 overlap 크기  |
 | `--multi-file`          | 멀티파일 모드                         |
 | `-l, --list-disks`      | Windows 물리 디스크 목록 출력         |
 
@@ -105,6 +107,9 @@ hexsift file.bin -e "\x00{2,4}"
 
 # 1개 이상의 0xFF 바이트
 hexsift file.bin -e "\xFF+"
+
+# 매우 긴 복잡 정규식의 경계 매칭 보강
+hexsift file.bin -e "\x00{12000}\x01" --parallel --overlap-size 16384
 ```
 
 ## 개발

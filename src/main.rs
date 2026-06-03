@@ -98,6 +98,7 @@ fn main() -> Result<()> {
             !cli.no_offset,
             cli.parallel,
             cli.chunk_size,
+            cli.overlap_size,
             cli.global_limit,
         );
     }
@@ -131,8 +132,7 @@ fn main() -> Result<()> {
 
         if let Some(expression) = cli.expression {
             let regex = RegexProcessor::compile_pattern(&expression)?;
-            let overlap_size =
-                RegexProcessor::overlap_for_expression(&expression, config.buffer_padding);
+            let overlap_size = overlap_for_stream(&expression, &config, cli.overlap_size);
             processor.process_stream_by_regex(
                 &mut file,
                 &regex,
@@ -174,8 +174,7 @@ fn main() -> Result<()> {
 
         if let Some(expression) = cli.expression {
             let regex = RegexProcessor::compile_pattern(&expression)?;
-            let overlap_size =
-                RegexProcessor::overlap_for_expression(&expression, config.buffer_padding);
+            let overlap_size = overlap_for_stream(&expression, &config, cli.overlap_size);
             processor.process_stream_by_regex_from_path(
                 &file_path,
                 &regex,
@@ -218,12 +217,11 @@ fn main() -> Result<()> {
         // Process file with or without regex
         if let Some(expression) = cli.expression {
             let regex = RegexProcessor::compile_pattern(&expression)?;
-            let stream_overlap =
-                RegexProcessor::overlap_for_expression(&expression, config.buffer_padding);
-            let parallel_overlap =
-                RegexProcessor::overlap_for_expression(&expression, 1024.min(cli.chunk_size / 10));
 
             if cli.parallel && file_size > cli.chunk_size as u64 {
+                let parallel_overlap =
+                    overlap_for_parallel(&expression, &config, cli.chunk_size, cli.overlap_size);
+
                 // Use parallel processing for large files
                 ParallelProcessor::process_file_parallel(
                     &mut file,
@@ -237,6 +235,8 @@ fn main() -> Result<()> {
                     parallel_overlap,
                 )?;
             } else {
+                let stream_overlap = overlap_for_stream(&expression, &config, cli.overlap_size);
+
                 // Use regular processing
                 processor.process_stream_by_regex(
                     &mut file,
@@ -277,6 +277,41 @@ fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+fn overlap_for_stream(expression: &str, config: &Config, explicit_overlap: Option<usize>) -> usize {
+    let default_overlap = explicit_overlap.unwrap_or(config.buffer_padding);
+    let overlap = RegexProcessor::overlap_for_expression(expression, default_overlap);
+    warn_for_large_overlap(overlap, default_overlap, explicit_overlap.is_some());
+    overlap
+}
+
+fn overlap_for_parallel(
+    expression: &str,
+    config: &Config,
+    chunk_size: usize,
+    explicit_overlap: Option<usize>,
+) -> usize {
+    let default_overlap = explicit_overlap.unwrap_or(config.buffer_padding.min(chunk_size / 10));
+    let overlap = RegexProcessor::overlap_for_expression(expression, default_overlap);
+    warn_for_large_overlap(overlap, default_overlap, explicit_overlap.is_some());
+    overlap
+}
+
+fn warn_for_large_overlap(overlap: usize, default_overlap: usize, explicit_overlap: bool) {
+    const LARGE_OVERLAP_WARNING_THRESHOLD: usize = 64 * 1024;
+
+    if overlap > LARGE_OVERLAP_WARNING_THRESHOLD && overlap > default_overlap {
+        eprintln!(
+            "Warning: pattern requires {} bytes of overlap; consider increasing --chunk-size for parallel searches.",
+            overlap
+        );
+    } else if explicit_overlap && overlap > LARGE_OVERLAP_WARNING_THRESHOLD {
+        eprintln!(
+            "Warning: using large overlap size {} bytes; this may increase memory and duplicate scanning work.",
+            overlap
+        );
+    }
 }
 
 fn handle_list_disks() -> Result<()> {
