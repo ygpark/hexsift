@@ -57,7 +57,7 @@ impl MultiFileProcessor {
                 continue;
             }
 
-            println!("=== Processing: {} ===", path.display());
+            crate::output_context::write_line(&format!("=== Processing: {} ===", path.display()));
 
             let processed_count = self.process_single_file(
                 &path,
@@ -75,12 +75,18 @@ impl MultiFileProcessor {
 
             // Check global limit
             if global_limit > 0 && total_processed >= global_limit {
-                println!("=== Global limit of {} reached ===", global_limit);
+                crate::output_context::write_line(&format!(
+                    "=== Global limit of {} reached ===",
+                    global_limit
+                ));
                 break;
             }
         }
 
-        println!("=== Total matches/lines processed: {} ===", total_processed);
+        crate::output_context::write_line(&format!(
+            "=== Total matches/lines processed: {} ===",
+            total_processed
+        ));
         Ok(())
     }
 
@@ -126,7 +132,7 @@ impl MultiFileProcessor {
                 continue;
             }
 
-            println!("=== Processing: {} ===", path.display());
+            crate::output_context::write_line(&format!("=== Processing: {} ===", path.display()));
 
             let processed_count = self.process_single_file(
                 path,
@@ -144,12 +150,18 @@ impl MultiFileProcessor {
 
             // Check global limit
             if global_limit > 0 && total_processed >= global_limit {
-                println!("=== Global limit of {} reached ===", global_limit);
+                crate::output_context::write_line(&format!(
+                    "=== Global limit of {} reached ===",
+                    global_limit
+                ));
                 break;
             }
         }
 
-        println!("=== Total matches/lines processed: {} ===", total_processed);
+        crate::output_context::write_line(&format!(
+            "=== Total matches/lines processed: {} ===",
+            total_processed
+        ));
         Ok(())
     }
 
@@ -208,6 +220,7 @@ impl MultiFileProcessor {
             if parallel && file_size > chunk_size as u64 {
                 let parallel_overlap =
                     self.overlap_for_parallel(expr, chunk_size, explicit_overlap_size);
+                let mut progress = ProgressIndicator::disabled();
 
                 ParallelProcessor::process_file_parallel(
                     &mut file,
@@ -219,6 +232,7 @@ impl MultiFileProcessor {
                     show_offset,
                     file_size,
                     parallel_overlap,
+                    &mut progress,
                 )?;
             } else {
                 let stream_overlap = self.overlap_for_stream(expr, explicit_overlap_size);
@@ -244,6 +258,7 @@ impl MultiFileProcessor {
             let lines_before = Self::count_lines_in_output();
 
             if parallel && file_size > chunk_size as u64 {
+                let mut progress = ProgressIndicator::disabled();
                 ParallelHexDump::process_file_parallel(
                     &mut file,
                     chunk_size,
@@ -252,6 +267,7 @@ impl MultiFileProcessor {
                     separator,
                     show_offset,
                     file_size,
+                    &mut progress,
                 )?;
             } else {
                 let mut processor = FileProcessor::new(self.config.clone());
@@ -314,7 +330,10 @@ impl MultiFileProcessor {
                     return Ok(());
                 }
 
-                println!("=== Processing: {} ===", path.display());
+                crate::output_context::write_line(&format!(
+                    "=== Processing: {} ===",
+                    path.display()
+                ));
 
                 self.process_single_file(
                     path,

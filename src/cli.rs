@@ -77,9 +77,13 @@ pub struct Cli {
     #[arg(short = 'f', long = "format", default_value = "hex")]
     pub output_format: String,
 
-    /// 진행률 표시 (대용량 파일 처리 시)
-    #[arg(long = "progress")]
-    pub show_progress: bool,
+    /// 벤치마크 모드: 결과 출력 없이 진행률과 처리 속도만 표시
+    #[arg(long = "benchmark")]
+    pub benchmark: bool,
+
+    /// 검색/덤프 결과를 저장할 파일 경로
+    #[arg(short = 'o', long = "output")]
+    pub output_path: Option<String>,
 
     /// 색상 출력 설정 (always, never, auto)
     #[arg(long = "color", default_value = "auto")]

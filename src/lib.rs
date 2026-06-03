@@ -35,6 +35,7 @@ pub mod error;
 pub mod forensic_image;
 pub mod multifile;
 pub mod output;
+pub mod output_context;
 pub mod parallel;
 pub mod physical_device;
 pub mod progress;

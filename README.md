@@ -59,6 +59,8 @@ hexsift file.bin -w 8
 | `--overlap-size <N>`    | 복잡한 정규식 경계 검색 overlap 크기  |
 | `--multi-file`          | 멀티파일 모드                         |
 | `-l, --list-disks`      | Windows 물리 디스크 목록 출력         |
+| `--benchmark`           | 결과 출력 없이 진행률/처리 속도만 표시 |
+| `-o, --output <FILE>`   | 검색/덤프 결과를 파일로 저장          |
 
 ## 사용 예제
 
@@ -91,6 +93,12 @@ hexsift evidence.E01 -e "\x53\x51\x4C\x69\x74\x65"
 # Windows 물리 디스크 분석 (관리자 권한 터미널 필요)
 hexsift --list-disks
 hexsift "\\.\PHYSICALDRIVE0" -e "\x00\x00\x01\x67"
+
+# 성능 측정만 수행
+hexsift "\\.\PHYSICALDRIVE0" -e "\x00\x00\x01\x67" --benchmark
+
+# 성능을 보면서 결과는 파일로 저장
+hexsift evidence.E01 -e "\x00\x00\x00\x01\x67" --benchmark --output hits.txt
 
 # 멀티파일 검색
 hexsift "*.bin" --multi-file -e "\xFF\xD8\xFF"

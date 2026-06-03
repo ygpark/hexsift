@@ -9,6 +9,7 @@ pub struct ProgressIndicator {
     processed_bytes: u64,
     enabled: bool,
     show_progress: bool,
+    last_render_width: usize,
 }
 
 impl ProgressIndicator {
@@ -27,6 +28,7 @@ impl ProgressIndicator {
             processed_bytes: 0,
             enabled: show_progress && total_bytes > 0,
             show_progress,
+            last_render_width: 0,
         }
     }
 
@@ -57,13 +59,16 @@ impl ProgressIndicator {
             return;
         }
 
-        self.processed_bytes = self.total_bytes;
+        if self.total_bytes > 0 {
+            self.processed_bytes = self.total_bytes;
+        }
         self.display_progress();
         eprintln!(); // New line after progress
+        self.last_render_width = 0;
     }
 
     /// Display current progress
-    fn display_progress(&self) {
+    fn display_progress(&mut self) {
         if !self.show_progress {
             return;
         }
@@ -75,7 +80,7 @@ impl ProgressIndicator {
             0.0
         };
 
-        let (rate_value, rate_unit) = format_bytes_per_second(bytes_per_sec);
+        let (rate_value, rate_unit) = format_bytes(bytes_per_sec as u64);
         let (processed_value, processed_unit) = format_bytes(self.processed_bytes);
 
         if self.total_bytes > 0 {
@@ -88,8 +93,8 @@ impl ProgressIndicator {
             let filled = (percentage as usize * bar_width) / 100;
             let empty = bar_width - filled;
 
-            eprint!(
-                "\r[{}{}] {}% ({:.1} {}/{:.1} {}) {:.1} {}/s",
+            let line = format!(
+                "[{}{}] {}% ({:.1} {}/{:.1} {}) {:.1} {}/s",
                 "=".repeat(filled),
                 " ".repeat(empty),
                 percentage,
@@ -100,19 +105,34 @@ impl ProgressIndicator {
                 rate_value,
                 rate_unit
             );
+            self.render_line(&line);
         } else {
             // Unknown file size - show spinner style
             let spinner_chars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧'];
             let spinner_idx = (elapsed.as_millis() / 100) % spinner_chars.len() as u128;
             let spinner = spinner_chars[spinner_idx as usize];
 
-            eprint!(
-                "\r{} Processing... ({:.1} {}) {:.1} {}/s",
+            let line = format!(
+                "{} Processing... ({:.1} {}) {:.1} {}/s",
                 spinner, processed_value, processed_unit, rate_value, rate_unit
             );
+            self.render_line(&line);
         }
 
         let _ = io::stderr().flush();
+    }
+
+    fn render_line(&mut self, line: &str) {
+        let width = line.chars().count();
+        let padding = self.last_render_width.saturating_sub(width);
+
+        if padding > 0 {
+            eprint!("\r{}{}", line, " ".repeat(padding));
+        } else {
+            eprint!("\r{}", line);
+        }
+
+        self.last_render_width = width;
     }
 
     /// Create a progress indicator that's always disabled
@@ -124,6 +144,7 @@ impl ProgressIndicator {
             processed_bytes: 0,
             enabled: false,
             show_progress: false,
+            last_render_width: 0,
         }
     }
 
@@ -138,6 +159,7 @@ impl ProgressIndicator {
             processed_bytes: 0,
             enabled: show_progress, // Enable for silent mode even with unknown size
             show_progress,
+            last_render_width: 0,
         }
     }
 
@@ -147,9 +169,9 @@ impl ProgressIndicator {
         io::stderr().is_terminal()
     }
 
-    /// Check if output should be silenced (when progress is enabled)
+    /// Check if normal output should be silenced.
     pub fn is_silent(&self) -> bool {
-        self.enabled
+        false
     }
 }
 
@@ -172,25 +194,6 @@ fn format_bytes(bytes: u64) -> (f64, &'static str) {
     (0.0, "B")
 }
 
-/// Format bytes per second with appropriate unit
-fn format_bytes_per_second(bytes_per_sec: f64) -> (f64, &'static str) {
-    const UNITS: &[(&str, f64)] = &[
-        ("TB/s", 1024.0 * 1024.0 * 1024.0 * 1024.0), // 1024^4
-        ("GB/s", 1024.0 * 1024.0 * 1024.0),          // 1024^3
-        ("MB/s", 1024.0 * 1024.0),                   // 1024^2
-        ("KB/s", 1024.0),
-        ("B/s", 1.0),
-    ];
-
-    for &(unit, divisor) in UNITS {
-        if bytes_per_sec >= divisor {
-            return (bytes_per_sec / divisor, unit);
-        }
-    }
-
-    (0.0, "B/s")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -203,15 +206,6 @@ mod tests {
         assert_eq!(format_bytes(1536), (1.5, "KB"));
         assert_eq!(format_bytes(1024 * 1024), (1.0, "MB"));
         assert_eq!(format_bytes(1024 * 1024 * 1024), (1.0, "GB"));
-    }
-
-    #[test]
-    fn test_format_bytes_per_second() {
-        assert_eq!(format_bytes_per_second(0.0), (0.0, "B/s"));
-        assert_eq!(format_bytes_per_second(512.0), (512.0, "B/s"));
-        assert_eq!(format_bytes_per_second(1024.0), (1.0, "KB/s"));
-        assert_eq!(format_bytes_per_second(1536.0), (1.5, "KB/s"));
-        assert_eq!(format_bytes_per_second(1024.0 * 1024.0), (1.0, "MB/s"));
     }
 
     #[test]

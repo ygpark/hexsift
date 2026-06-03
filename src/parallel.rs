@@ -1,5 +1,6 @@
 use crate::error::Result;
 use crate::output::OutputFormatter;
+use crate::progress::ProgressIndicator;
 use rayon::prelude::*;
 use regex::bytes::Regex;
 use std::fs::File;
@@ -33,6 +34,7 @@ impl ParallelProcessor {
         show_offset: bool,
         file_size: u64,
         overlap_size: usize,
+        progress: &mut ProgressIndicator,
     ) -> Result<()> {
         let hex_offset_length = OutputFormatter::calculate_hex_offset_length(file_size);
         let mut all_matches = Vec::new();
@@ -56,6 +58,8 @@ impl ParallelProcessor {
             if chunk_buffer.is_empty() {
                 break;
             }
+
+            progress.update(bytes_read as u64);
 
             // Process chunk and find matches
             let chunk_matches = Self::process_chunk(
@@ -103,9 +107,10 @@ impl ParallelProcessor {
             .into_iter()
             .take(if limit > 0 { limit } else { usize::MAX })
         {
-            println!("{}", line);
+            crate::output_context::write_line(&line);
         }
 
+        progress.finish();
         Ok(())
     }
 
@@ -227,6 +232,7 @@ impl ParallelHexDump {
         separator: &str,
         show_offset: bool,
         file_size: u64,
+        progress: &mut ProgressIndicator,
     ) -> Result<()> {
         let hex_offset_length = OutputFormatter::calculate_hex_offset_length(file_size);
         let mut current_pos = file.stream_position()?;
@@ -246,6 +252,8 @@ impl ParallelHexDump {
                 break;
             }
 
+            progress.update(bytes_read as u64);
+
             // Process chunk
             let chunk_lines = Self::process_chunk_hex_dump(
                 &chunk_buffer,
@@ -262,7 +270,7 @@ impl ParallelHexDump {
             );
 
             for line in chunk_lines {
-                println!("{}", line);
+                crate::output_context::write_line(&line);
                 lines_processed += 1;
                 if limit > 0 && lines_processed >= limit {
                     break;
@@ -272,6 +280,7 @@ impl ParallelHexDump {
             current_pos += bytes_read as u64;
         }
 
+        progress.finish();
         Ok(())
     }
 

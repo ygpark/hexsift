@@ -1,7 +1,6 @@
 use crate::cli::ColorChoice;
 /// Utilities for formatting binary data as hexadecimal output
 use colored::*;
-use std::io::IsTerminal;
 
 pub struct OutputFormatter;
 
@@ -89,31 +88,31 @@ impl OutputFormatter {
         }
 
         let should_use_color = match color_choice {
-            ColorChoice::Always => true,
+            ColorChoice::Always => crate::output_context::is_stdout(),
             ColorChoice::Never => false,
-            ColorChoice::Auto => std::io::stdout().is_terminal(),
+            ColorChoice::Auto => crate::output_context::should_use_color(),
         };
 
         if show_offset {
             let offset_str = Self::format_offset(offset, hex_offset_length);
 
             if should_use_color {
-                println!(
+                crate::output_context::write_line(&format!(
                     "{} : {}",
                     offset_str.cyan().bold(),
                     Self::colorize_hex_data_with_match(hex_data, match_start, match_length)
-                );
+                ));
             } else {
-                println!("{} : {}", offset_str, hex_data);
+                crate::output_context::write_line(&format!("{} : {}", offset_str, hex_data));
             }
         } else {
             if should_use_color {
-                println!(
+                crate::output_context::write_line(&format!(
                     "{}",
                     Self::colorize_hex_data_with_match(hex_data, match_start, match_length)
-                );
+                ));
             } else {
-                println!("{}", hex_data);
+                crate::output_context::write_line(hex_data);
             }
         }
     }

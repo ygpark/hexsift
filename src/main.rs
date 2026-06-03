@@ -2,6 +2,7 @@ use clap::Parser;
 use hexsift::cli::Cli;
 use hexsift::config::Config;
 use hexsift::error::Result;
+use hexsift::forensic_image::ForensicImageReader;
 use hexsift::multifile::MultiFileProcessor;
 use hexsift::output::OutputFormatter;
 use hexsift::parallel::{ParallelHexDump, ParallelProcessor};
@@ -56,6 +57,8 @@ fn main() -> Result<()> {
     if cli.list_disks {
         return handle_list_disks();
     }
+
+    hexsift::output_context::configure(cli.benchmark, cli.output_path.as_deref())?;
 
     // Check file path or stdin
     let (file_path, is_physical_drive) = match &cli.file_path {
@@ -128,7 +131,7 @@ fn main() -> Result<()> {
 
         file.seek(SeekFrom::Start(cli.position))?;
 
-        let mut progress = ProgressIndicator::disabled();
+        let mut progress = create_progress(cli.benchmark, file_size.saturating_sub(cli.position));
 
         if let Some(expression) = cli.expression {
             let regex = RegexProcessor::compile_pattern(&expression)?;
@@ -169,14 +172,15 @@ fn main() -> Result<()> {
             file_path.display()
         );
 
-        // Forensic images (E01) do not support progress due to exhume_body library limitations
-        let mut progress = ProgressIndicator::disabled();
+        let mut forensic_reader = ForensicImageReader::new(&file_path)?;
+        let image_size = forensic_reader.size();
+        let mut progress = create_progress(cli.benchmark, image_size);
 
         if let Some(expression) = cli.expression {
             let regex = RegexProcessor::compile_pattern(&expression)?;
             let overlap_size = overlap_for_stream(&expression, &config, cli.overlap_size);
-            processor.process_stream_by_regex_from_path(
-                &file_path,
+            processor.process_reader_by_regex(
+                &mut forensic_reader,
                 &regex,
                 cli.line_width,
                 cli.limit,
@@ -186,12 +190,13 @@ fn main() -> Result<()> {
                 &mut progress,
             )?;
         } else {
-            processor.process_file_stream_from_path(
-                &file_path,
+            processor.process_reader_stream(
+                &mut forensic_reader,
                 cli.line_width,
                 cli.limit,
                 &cli.separator,
                 !cli.no_offset,
+                image_size,
                 &mut progress,
             )?;
         }
@@ -206,13 +211,7 @@ fn main() -> Result<()> {
         // Seek to starting position
         file.seek(SeekFrom::Start(cli.position))?;
 
-        // Create progress indicator if requested
-        let show_progress = cli.show_progress && ProgressIndicator::should_show_progress();
-        let mut progress = if show_progress {
-            ProgressIndicator::new(file_size - cli.position, true)
-        } else {
-            ProgressIndicator::disabled()
-        };
+        let mut progress = create_progress(cli.benchmark, file_size.saturating_sub(cli.position));
 
         // Process file with or without regex
         if let Some(expression) = cli.expression {
@@ -233,6 +232,7 @@ fn main() -> Result<()> {
                     !cli.no_offset,
                     file_size,
                     parallel_overlap,
+                    &mut progress,
                 )?;
             } else {
                 let stream_overlap = overlap_for_stream(&expression, &config, cli.overlap_size);
@@ -260,6 +260,7 @@ fn main() -> Result<()> {
                     &cli.separator,
                     !cli.no_offset,
                     file_size,
+                    &mut progress,
                 )?;
             } else {
                 // Use regular processing
@@ -277,6 +278,16 @@ fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+fn create_progress(benchmark: bool, total_bytes: u64) -> ProgressIndicator {
+    if benchmark && total_bytes > 0 {
+        ProgressIndicator::new(total_bytes, true)
+    } else if benchmark {
+        ProgressIndicator::new_silent_only(true)
+    } else {
+        ProgressIndicator::disabled()
+    }
 }
 
 fn overlap_for_stream(expression: &str, config: &Config, explicit_overlap: Option<usize>) -> usize {

@@ -116,7 +116,7 @@ impl FileProcessor {
     }
 
     /// Generic stream processing function that works with any Read + Seek reader
-    fn process_reader_stream<R: Read + Seek>(
+    pub fn process_reader_stream<R: Read + Seek>(
         &mut self,
         reader: &mut R,
         width: usize,
@@ -257,7 +257,7 @@ impl FileProcessor {
     }
 
     /// Generic regex processing function that works with any Read + Seek reader
-    fn process_reader_by_regex<R: Read + Seek>(
+    pub fn process_reader_by_regex<R: Read + Seek>(
         &mut self,
         reader: &mut R,
         regex: &Regex,
@@ -330,6 +330,7 @@ impl FileProcessor {
 
                 // Check line limit
                 if limit > 0 && line >= limit {
+                    progress.finish();
                     return Ok(());
                 }
             }
