@@ -46,21 +46,21 @@ hexsift file.bin -w 8
 
 ### 명령줄 옵션
 
-| 옵션                    | 설명                                  |
-| ----------------------- | ------------------------------------- |
-| `-e, --regex <PATTERN>` | 검색할 정규표현식 패턴                |
-| `-w, --width <N>`       | 한 줄에 표시할 바이트 수 (기본값: 16) |
-| `-n, --line <N>`        | 출력할 줄 수 제한 (0: 무제한)         |
-| `-s, --position <N>`    | 시작 위치 (바이트 단위)               |
-| `-t, --separator <STR>` | 바이트 구분자 (기본값: 공백)          |
-| `--no-offset`           | 오프셋 숨기기                         |
-| `--parallel`            | 병렬 처리 활성화                      |
-| `--chunk-size <N>`      | 병렬 처리 청크 크기 (기본값: 16MB)    |
-| `--overlap-size <N>`    | 복잡한 정규식 경계 검색 overlap 크기  |
-| `--multi-file`          | 멀티파일 모드                         |
-| `-l, --list-disks`      | Windows 물리 디스크 목록 출력         |
+| 옵션                    | 설명                                   |
+| ----------------------- | -------------------------------------- |
+| `-e, --regex <PATTERN>` | 검색할 정규표현식 패턴                 |
+| `-w, --width <N>`       | 한 줄에 표시할 바이트 수 (기본값: 16)  |
+| `-n, --line <N>`        | 출력할 줄 수 제한 (0: 무제한)          |
+| `-s, --position <N>`    | 시작 위치 (바이트 단위)                |
+| `-t, --separator <STR>` | 바이트 구분자 (기본값: 공백)           |
+| `--no-offset`           | 오프셋 숨기기                          |
+| `--parallel`            | 병렬 처리 활성화                       |
+| `--chunk-size <N>`      | 병렬 처리 청크 크기 (기본값: 16MB)     |
+| `--overlap-size <N>`    | 복잡한 정규식 경계 검색 overlap 크기   |
+| `--multi-file`          | 멀티파일 모드                          |
+| `-l, --list-disks`      | Windows 물리 디스크 목록 출력          |
 | `--benchmark`           | 결과 출력 없이 진행률/처리 속도만 표시 |
-| `-o, --output <FILE>`   | 검색/덤프 결과를 파일로 저장          |
+| `-o, --output <FILE>`   | 검색/덤프 결과를 파일로 저장           |
 
 ## 사용 예제
 
@@ -72,6 +72,16 @@ hexsift video.mp4 -e "\x00\x00\x00\x01\x67"
 
 # NAL unit 시작 코드 (유연한 패턴)
 hexsift video.mp4 -e "\x00{2,3}\x01"
+```
+
+### CCTV 이미지 헤더 분석
+
+```bash
+# CCTV 영상(H264코덱) 앞에 붙은 헤더 정보(timestamp, channel, resolution, etc.) 확인하기
+hexsift cctv_hdd.dump -e "(?s-u).{32}\x00\x00\x00\x01\x67" -w 37
+hexsift cctv_hdd.dump -e "(?s-u).{32}\x00\x00\x00\x01\x68" -w 37
+hexsift cctv_hdd.dump -e "(?s-u).{32}\x00\x00\x00\x01\x65" -w 37
+hexsift cctv_hdd.dump -e "(?s-u).{32}\x00\x00\x00\x01\x61" -w 37
 ```
 
 ### 실행 파일 분석
