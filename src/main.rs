@@ -5,6 +5,7 @@ use hexsift::error::Result;
 use hexsift::multifile::MultiFileProcessor;
 use hexsift::output::OutputFormatter;
 use hexsift::parallel::{ParallelHexDump, ParallelProcessor};
+use hexsift::physical_device::{is_physical_drive_path, PHYSICAL_DEVICE_SIZE_FALLBACK};
 use hexsift::progress::ProgressIndicator;
 use hexsift::regex_processor::RegexProcessor;
 use hexsift::stream::FileProcessor;
@@ -50,14 +51,19 @@ fn main() -> Result<()> {
     hexsift::color_context::set_color_choice(cli.color.clone());
 
     // Check file path or stdin
-    let file_path = match &cli.file_path {
+    let (file_path, is_physical_drive) = match &cli.file_path {
         Some(path) => {
             if path == "-" {
                 // Handle stdin input
                 return handle_stdin_input(&cli);
             }
-            // Validate file path for security
-            validate_file_path(path)?
+
+            if is_physical_drive_path(path) {
+                (PathBuf::from(path), true)
+            } else {
+                // Validate file path for security
+                (validate_file_path(path)?, false)
+            }
         }
         None => {
             // Clap will automatically show help when no file path is provided
@@ -94,6 +100,53 @@ fn main() -> Result<()> {
     config.validate_cli(&cli)?;
 
     let mut processor = FileProcessor::new(config.clone());
+
+    if is_physical_drive {
+        eprintln!("Detected Windows physical drive: {}", file_path.display());
+        let mut file = match File::open(&file_path) {
+            Ok(file) => file,
+            Err(err) if err.kind() == io::ErrorKind::PermissionDenied => {
+                return Err(hexsift::error::BingrepError::Io(io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    format!(
+                        "Access denied opening {}. Run your terminal as Administrator.",
+                        file_path.display()
+                    ),
+                )));
+            }
+            Err(err) => return Err(err.into()),
+        };
+        let file_size = get_stream_size_or_default(&mut file, PHYSICAL_DEVICE_SIZE_FALLBACK);
+
+        file.seek(SeekFrom::Start(cli.position))?;
+
+        let mut progress = ProgressIndicator::disabled();
+
+        if let Some(expression) = cli.expression {
+            let regex = RegexProcessor::compile_pattern(&expression)?;
+            processor.process_stream_by_regex(
+                &mut file,
+                &regex,
+                cli.line_width,
+                cli.limit,
+                &cli.separator,
+                !cli.no_offset,
+                &mut progress,
+            )?;
+        } else {
+            processor.process_file_stream(
+                &mut file,
+                cli.line_width,
+                cli.limit,
+                &cli.separator,
+                !cli.no_offset,
+                file_size,
+                &mut progress,
+            )?;
+        }
+
+        return Ok(());
+    }
 
     // Check if this is a forensic image file (E01, VMDK) and handle accordingly
     if hexsift::forensic_image::is_forensic_image_path(&file_path)? {
@@ -205,6 +258,27 @@ fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+fn get_stream_size_or_default(file: &mut File, default_size: u64) -> u64 {
+    let current_pos = file.stream_position().ok();
+    let size = file
+        .seek(SeekFrom::End(0))
+        .ok()
+        .filter(|size| *size > 0)
+        .or_else(|| {
+            file.metadata()
+                .ok()
+                .map(|metadata| metadata.len())
+                .filter(|size| *size > 0)
+        })
+        .unwrap_or(default_size);
+
+    if let Some(pos) = current_pos {
+        let _ = file.seek(SeekFrom::Start(pos));
+    }
+
+    size
 }
 
 /// Handle stdin input processing

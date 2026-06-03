@@ -13,7 +13,10 @@ Example 01 파일 내용을 HEX값으로 출력:
     hexsift \"path_to_file.txt\" -n 10    (10줄만 출력)
 
 Example 02 파일 내용을 정규표현식으로 검색:
-    hexsift \"path_to_file.txt\" -e \"\\x00\\x00\\x00\\x01\\x67\" -w 100")]
+    hexsift \"path_to_file.txt\" -e \"\\x00\\x00\\x00\\x01\\x67\" -w 100
+
+Example 03 Windows 물리 디스크 검색 (관리자 권한 필요):
+    hexsift \"\\\\.\\PHYSICALDRIVE0\" -e \"\\x00\\x00\\x01\\x67\"")]
 pub struct Cli {
     /// 입력 파일 경로 또는 glob 패턴 (예: "*.bin", "data/**/*.txt")
     pub file_path: Option<String>,

@@ -36,6 +36,7 @@ pub mod forensic_image;
 pub mod multifile;
 pub mod output;
 pub mod parallel;
+pub mod physical_device;
 pub mod progress;
 pub mod regex_processor;
 pub mod stream;
