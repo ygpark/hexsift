@@ -7,11 +7,7 @@ use std::thread;
 use std::time::Duration;
 
 fn get_binary_path() -> PathBuf {
-    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    path.push("target");
-    path.push("debug");
-    path.push("hexsift");
-    path
+    PathBuf::from(env!("CARGO_BIN_EXE_hexsift"))
 }
 
 fn create_test_file(content: &[u8], suffix: &str) -> PathBuf {
