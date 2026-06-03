@@ -56,6 +56,7 @@ hexsift file.bin -w 8
 | `--no-offset`           | 오프셋 숨기기                         |
 | `--parallel`            | 병렬 처리 활성화                      |
 | `--multi-file`          | 멀티파일 모드                         |
+| `-l, --list-disks`      | Windows 물리 디스크 목록 출력         |
 
 ## 사용 예제
 
@@ -86,6 +87,7 @@ hexsift program -e "\x7F\x45\x4C\x46"
 hexsift evidence.E01 -e "\x53\x51\x4C\x69\x74\x65"
 
 # Windows 물리 디스크 분석 (관리자 권한 터미널 필요)
+hexsift --list-disks
 hexsift "\\.\PHYSICALDRIVE0" -e "\x00\x00\x01\x67"
 
 # 멀티파일 검색

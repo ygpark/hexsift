@@ -323,6 +323,7 @@ fn test_help_output() {
     assert!(stdout.contains("-w, --width"));
     assert!(stdout.contains("-n, --line"));
     assert!(stdout.contains("--no-offset"));
+    assert!(stdout.contains("-l, --list-disks"));
 }
 
 #[test]

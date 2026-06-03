@@ -5,7 +5,9 @@ use hexsift::error::Result;
 use hexsift::multifile::MultiFileProcessor;
 use hexsift::output::OutputFormatter;
 use hexsift::parallel::{ParallelHexDump, ParallelProcessor};
-use hexsift::physical_device::{is_physical_drive_path, PHYSICAL_DEVICE_SIZE_FALLBACK};
+use hexsift::physical_device::{
+    format_drive_size, is_physical_drive_path, list_physical_drives, PHYSICAL_DEVICE_SIZE_FALLBACK,
+};
 use hexsift::progress::ProgressIndicator;
 use hexsift::regex_processor::RegexProcessor;
 use hexsift::stream::FileProcessor;
@@ -49,6 +51,10 @@ fn main() -> Result<()> {
 
     // Set global color choice
     hexsift::color_context::set_color_choice(cli.color.clone());
+
+    if cli.list_disks {
+        return handle_list_disks();
+    }
 
     // Check file path or stdin
     let (file_path, is_physical_drive) = match &cli.file_path {
@@ -279,6 +285,33 @@ fn get_stream_size_or_default(file: &mut File, default_size: u64) -> u64 {
     }
 
     size
+}
+
+fn handle_list_disks() -> Result<()> {
+    let drives = list_physical_drives();
+
+    if drives.is_empty() {
+        println!("No Windows physical drives found.");
+        return Ok(());
+    }
+
+    println!("{:<22} {:>12}  {}", "Path", "Size", "Status");
+    for drive in drives {
+        let status = if drive.accessible {
+            "accessible".to_string()
+        } else {
+            drive.note.unwrap_or_else(|| "not accessible".to_string())
+        };
+
+        println!(
+            "{:<22} {:>12}  {}",
+            drive.path,
+            format_drive_size(drive.size),
+            status
+        );
+    }
+
+    Ok(())
 }
 
 /// Handle stdin input processing

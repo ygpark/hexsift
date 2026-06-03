@@ -16,6 +16,7 @@ Example 02 파일 내용을 정규표현식으로 검색:
     hexsift \"path_to_file.txt\" -e \"\\x00\\x00\\x00\\x01\\x67\" -w 100
 
 Example 03 Windows 물리 디스크 검색 (관리자 권한 필요):
+    hexsift --list-disks
     hexsift \"\\\\.\\PHYSICALDRIVE0\" -e \"\\x00\\x00\\x01\\x67\"")]
 pub struct Cli {
     /// 입력 파일 경로 또는 glob 패턴 (예: "*.bin", "data/**/*.txt")
@@ -56,6 +57,10 @@ pub struct Cli {
     /// 다중 파일 모드 (glob 패턴 또는 여러 파일 처리)
     #[arg(short = 'm', long = "multi")]
     pub multi_file: bool,
+
+    /// Windows 물리 디스크 목록 출력
+    #[arg(short = 'l', long = "list-disks")]
+    pub list_disks: bool,
 
     /// 전체 파일에 대한 전역 제한 (0: 무제한)
     #[arg(long = "global-limit", default_value = "0")]
