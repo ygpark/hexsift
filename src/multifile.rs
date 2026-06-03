@@ -1,5 +1,6 @@
 use crate::config::Config;
 use crate::error::Result;
+use crate::forensic_image::is_forensic_image_path;
 use crate::parallel::{ParallelHexDump, ParallelProcessor};
 use crate::progress::ProgressIndicator;
 use crate::regex_processor::RegexProcessor;
@@ -160,6 +161,35 @@ impl MultiFileProcessor {
         parallel: bool,
         chunk_size: usize,
     ) -> Result<usize> {
+        if is_forensic_image_path(path)? {
+            let mut processor = FileProcessor::new(self.config.clone());
+            let mut progress = ProgressIndicator::disabled();
+
+            if let Some(expr) = expression {
+                let regex = RegexProcessor::compile_pattern(expr)?;
+                processor.process_stream_by_regex_from_path(
+                    path,
+                    &regex,
+                    line_width,
+                    limit,
+                    separator,
+                    show_offset,
+                    &mut progress,
+                )?;
+            } else {
+                processor.process_file_stream_from_path(
+                    path,
+                    line_width,
+                    limit,
+                    separator,
+                    show_offset,
+                    &mut progress,
+                )?;
+            }
+
+            return Ok(0);
+        }
+
         let mut file = File::open(path)?;
         let file_size = file.metadata()?.len();
 

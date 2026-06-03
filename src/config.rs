@@ -8,18 +8,18 @@ pub struct Config {
     pub buffer_padding: usize,
     pub max_line_width: usize,
     pub min_line_width: usize,
-    pub max_file_size: u64,        // Maximum file size to process
-    pub max_memory_usage: usize,   // Maximum memory usage in bytes
+    pub max_file_size: u64,      // Maximum file size to process
+    pub max_memory_usage: usize, // Maximum memory usage in bytes
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
             // Optimized for modern NVMe SSDs (1-4MB range) while maintaining compatibility
-            buffer_size: 4 * 1024 * 1024,     // 4MB for optimal NVMe/SSD read performance
-            buffer_padding: 8192,              // 8KB padding for better pattern boundary handling
-            max_line_width: 8192,              // Maximum bytes per line
-            min_line_width: 1,                 // Minimum bytes per line
+            buffer_size: 4 * 1024 * 1024, // 4MB for optimal NVMe/SSD read performance
+            buffer_padding: 8192,         // 8KB padding for better pattern boundary handling
+            max_line_width: 8192,         // Maximum bytes per line
+            min_line_width: 1,            // Minimum bytes per line
             max_file_size: 100 * 1024 * 1024 * 1024u64, // 100GB maximum file size
             max_memory_usage: 1024 * 1024 * 1024, // 1GB maximum memory usage
         }

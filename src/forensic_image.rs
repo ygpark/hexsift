@@ -4,8 +4,11 @@
 //! including E01 (EWF) and VMDK files using the exhume_body library.
 
 use crate::error::{BingrepError, Result};
+use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
+
+const EWF_SIGNATURE: &[u8; 8] = b"EVF\t\r\n\xff\0";
 
 /// Forensic image reader that handles E01 and VMDK forensic image files
 pub struct ForensicImageReader {
@@ -23,11 +26,12 @@ impl ForensicImageReader {
     #[cfg(feature = "exhume")]
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
-        let path_str = path.to_str()
-            .ok_or_else(|| BingrepError::Io(std::io::Error::new(
+        let path_str = path.to_str().ok_or_else(|| {
+            BingrepError::Io(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
-                "Invalid path encoding"
-            )))?;
+                "Invalid path encoding",
+            ))
+        })?;
 
         // Try to create the exhume_body reader
         let mut body = match std::panic::catch_unwind(|| {
@@ -54,10 +58,7 @@ impl ForensicImageReader {
             }
         };
 
-        Ok(ForensicImageReader {
-            body,
-            size,
-        })
+        Ok(ForensicImageReader { body, size })
     }
 
     #[cfg(not(feature = "exhume"))]
@@ -71,7 +72,7 @@ impl ForensicImageReader {
                 1. Enable the 'exhume' feature in Cargo.toml\n\
                 2. Install required dependencies for exhume_body",
                 path.display()
-            )
+            ),
         )))
     }
 
@@ -100,7 +101,7 @@ impl Read for ForensicImageReader {
     fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
         Err(std::io::Error::new(
             std::io::ErrorKind::Unsupported,
-            "Forensic image support not enabled"
+            "Forensic image support not enabled",
         ))
     }
 }
@@ -110,7 +111,7 @@ impl Seek for ForensicImageReader {
     fn seek(&mut self, _pos: SeekFrom) -> std::io::Result<u64> {
         Err(std::io::Error::new(
             std::io::ErrorKind::Unsupported,
-            "Forensic image support not enabled"
+            "Forensic image support not enabled",
         ))
     }
 }
@@ -120,6 +121,12 @@ pub fn is_forensic_image<P: AsRef<Path>>(path: P) -> bool {
     is_e01_file(&path) || is_vmdk_file(&path)
 }
 
+/// Check if a file is a supported forensic image using extension and file signature.
+pub fn is_forensic_image_path<P: AsRef<Path>>(path: P) -> Result<bool> {
+    let path = path.as_ref();
+    Ok(is_forensic_image(path) || has_e01_signature(path)?)
+}
+
 /// Check if a file path has an E01 extension
 pub fn is_e01_file<P: AsRef<Path>>(path: P) -> bool {
     path.as_ref()
@@ -127,6 +134,18 @@ pub fn is_e01_file<P: AsRef<Path>>(path: P) -> bool {
         .and_then(|ext| ext.to_str())
         .map(|ext| ext.to_lowercase() == "e01")
         .unwrap_or(false)
+}
+
+/// Check whether the file starts with the EWF/E01 magic signature.
+pub fn has_e01_signature<P: AsRef<Path>>(path: P) -> Result<bool> {
+    let mut file = File::open(path)?;
+    let mut signature = [0u8; EWF_SIGNATURE.len()];
+
+    match file.read_exact(&mut signature) {
+        Ok(()) => Ok(&signature == EWF_SIGNATURE),
+        Err(err) if err.kind() == std::io::ErrorKind::UnexpectedEof => Ok(false),
+        Err(err) => Err(BingrepError::Io(err)),
+    }
 }
 
 /// Check if a file path has a VMDK extension
@@ -150,6 +169,20 @@ pub fn get_format_name<P: AsRef<Path>>(path: P) -> Option<&'static str> {
     }
 }
 
+/// Get the format name using extension first, then known file signatures.
+pub fn detect_format_name<P: AsRef<Path>>(path: P) -> Result<Option<&'static str>> {
+    let path = path.as_ref();
+    if let Some(format_name) = get_format_name(path) {
+        return Ok(Some(format_name));
+    }
+
+    if has_e01_signature(path)? {
+        Ok(Some("E01/EWF"))
+    } else {
+        Ok(None)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -162,6 +195,24 @@ mod tests {
         assert!(!is_e01_file("test.dd"));
         assert!(!is_e01_file("test.raw"));
         assert!(!is_e01_file("test"));
+    }
+
+    #[test]
+    fn test_has_e01_signature() -> Result<()> {
+        let mut temp_file = tempfile::NamedTempFile::new().unwrap();
+        std::io::Write::write_all(&mut temp_file, EWF_SIGNATURE).unwrap();
+        assert!(has_e01_signature(temp_file.path())?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_detect_format_name_from_signature() -> Result<()> {
+        let mut temp_file = tempfile::NamedTempFile::new().unwrap();
+        std::io::Write::write_all(&mut temp_file, EWF_SIGNATURE).unwrap();
+        assert_eq!(detect_format_name(temp_file.path())?, Some("E01/EWF"));
+
+        Ok(())
     }
 
     #[test]

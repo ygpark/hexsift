@@ -1,3 +1,4 @@
+use clap::Parser;
 use hxgrep::cli::Cli;
 use hxgrep::config::Config;
 use hxgrep::error::Result;
@@ -7,7 +8,6 @@ use hxgrep::parallel::{ParallelHexDump, ParallelProcessor};
 use hxgrep::progress::ProgressIndicator;
 use hxgrep::regex_processor::RegexProcessor;
 use hxgrep::stream::FileProcessor;
-use clap::Parser;
 use std::fs::File;
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
@@ -17,11 +17,12 @@ fn validate_file_path(path: &str) -> Result<PathBuf> {
     let path = Path::new(path);
 
     // Check for potentially dangerous path components
-    if path.components().any(|component| {
-        matches!(component, std::path::Component::ParentDir)
-    }) {
+    if path
+        .components()
+        .any(|component| matches!(component, std::path::Component::ParentDir))
+    {
         return Err(hxgrep::error::BingrepError::InvalidPath(
-            "Path contains parent directory references (..)".to_string()
+            "Path contains parent directory references (..)".to_string(),
         ));
     }
 
@@ -35,7 +36,7 @@ fn validate_file_path(path: &str) -> Result<PathBuf> {
                 Ok(path.to_path_buf())
             } else {
                 Err(hxgrep::error::BingrepError::InvalidPath(
-                    "Invalid or inaccessible file path".to_string()
+                    "Invalid or inaccessible file path".to_string(),
                 ))
             }
         }
@@ -95,11 +96,15 @@ fn main() -> Result<()> {
     let mut processor = FileProcessor::new(config.clone());
 
     // Check if this is a forensic image file (E01, VMDK) and handle accordingly
-    if hxgrep::forensic_image::is_forensic_image(&file_path) {
+    if hxgrep::forensic_image::is_forensic_image_path(&file_path)? {
         // Process forensic image file - parallel processing not supported for forensic images yet
-        let format_name = hxgrep::forensic_image::get_format_name(&file_path)
-            .unwrap_or("Unknown");
-        eprintln!("Detected {} forensic image: {}", format_name, file_path.display());
+        let format_name =
+            hxgrep::forensic_image::detect_format_name(&file_path)?.unwrap_or("Unknown");
+        eprintln!(
+            "Detected {} forensic image: {}",
+            format_name,
+            file_path.display()
+        );
 
         // Forensic images (E01) do not support progress due to exhume_body library limitations
         let mut progress = ProgressIndicator::disabled();
@@ -245,12 +250,7 @@ fn process_stdin_with_regex(
         let display_bytes = &data[mat.start()..end_pos];
 
         let hex_string = OutputFormatter::format_bytes_as_hex(display_bytes, &cli.separator);
-        OutputFormatter::print_line(
-            match_offset,
-            &hex_string,
-            !cli.no_offset,
-            hex_offset_length,
-        );
+        OutputFormatter::print_line(match_offset, &hex_string, !cli.no_offset, hex_offset_length);
 
         match_count += 1;
         if cli.limit > 0 && match_count >= cli.limit {

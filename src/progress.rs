@@ -108,11 +108,7 @@ impl ProgressIndicator {
 
             eprint!(
                 "\r{} Processing... ({:.1} {}) {:.1} {}/s",
-                spinner,
-                processed_value,
-                processed_unit,
-                rate_value,
-                rate_unit
+                spinner, processed_value, processed_unit, rate_value, rate_unit
             );
         }
 

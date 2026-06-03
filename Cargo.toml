@@ -19,6 +19,12 @@ colored = "2.1"
 default = ["exhume"]
 exhume = ["exhume_body"]
 
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
 [dev-dependencies]
 uuid = { version = "1.0", features = ["v4"] }
 tempfile = "3.8"

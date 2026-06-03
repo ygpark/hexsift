@@ -1,12 +1,12 @@
 use crate::buffer_manager::BufferManager;
 use crate::config::Config;
 use crate::error::Result;
-use crate::forensic_image::{ForensicImageReader, is_forensic_image};
+use crate::forensic_image::{is_forensic_image_path, ForensicImageReader};
 use crate::output::OutputFormatter;
 use crate::progress::ProgressIndicator;
 use regex::bytes::Regex;
 use std::fs::File;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{Read, Seek};
 use std::path::Path;
 
 /// File processor for handling binary file searching and hex dump operations
@@ -56,16 +56,32 @@ impl FileProcessor {
     ) -> Result<()> {
         let file_path = file_path.as_ref();
 
-        if is_forensic_image(&file_path) {
+        if is_forensic_image_path(&file_path)? {
             // Process forensic image file (E01, VMDK)
             let mut forensic_reader = ForensicImageReader::new(&file_path)?;
             let file_size = forensic_reader.size();
-            self.process_reader_stream(&mut forensic_reader, width, limit, separator, show_offset, file_size, progress)
+            self.process_reader_stream(
+                &mut forensic_reader,
+                width,
+                limit,
+                separator,
+                show_offset,
+                file_size,
+                progress,
+            )
         } else {
             // Process regular file
             let mut file = File::open(&file_path)?;
             let file_size = file.metadata()?.len();
-            self.process_reader_stream(&mut file, width, limit, separator, show_offset, file_size, progress)
+            self.process_reader_stream(
+                &mut file,
+                width,
+                limit,
+                separator,
+                show_offset,
+                file_size,
+                progress,
+            )
         }
     }
 
@@ -92,7 +108,15 @@ impl FileProcessor {
         file_size: u64,
         progress: &mut ProgressIndicator,
     ) -> Result<()> {
-        self.process_reader_stream(file, width, limit, separator, show_offset, file_size, progress)
+        self.process_reader_stream(
+            file,
+            width,
+            limit,
+            separator,
+            show_offset,
+            file_size,
+            progress,
+        )
     }
 
     /// Generic stream processing function that works with any Read + Seek reader
@@ -122,7 +146,13 @@ impl FileProcessor {
             line += 1;
 
             let hex_string = OutputFormatter::format_bytes_as_hex(&buffer[..bytes_read], separator);
-            OutputFormatter::print_line_with_silent(pos, &hex_string, show_offset, hex_offset_length, progress.is_silent());
+            OutputFormatter::print_line_with_silent(
+                pos,
+                &hex_string,
+                show_offset,
+                hex_offset_length,
+                progress.is_silent(),
+            );
 
             pos += bytes_read as u64;
 
@@ -165,14 +195,30 @@ impl FileProcessor {
     ) -> Result<()> {
         let file_path = file_path.as_ref();
 
-        if is_forensic_image(&file_path) {
+        if is_forensic_image_path(&file_path)? {
             // Process forensic image file (E01, VMDK)
             let mut forensic_reader = ForensicImageReader::new(&file_path)?;
-            self.process_reader_by_regex(&mut forensic_reader, regex, width, limit, separator, show_offset, progress)
+            self.process_reader_by_regex(
+                &mut forensic_reader,
+                regex,
+                width,
+                limit,
+                separator,
+                show_offset,
+                progress,
+            )
         } else {
             // Process regular file
             let mut file = File::open(&file_path)?;
-            self.process_reader_by_regex(&mut file, regex, width, limit, separator, show_offset, progress)
+            self.process_reader_by_regex(
+                &mut file,
+                regex,
+                width,
+                limit,
+                separator,
+                show_offset,
+                progress,
+            )
         }
     }
 
@@ -212,11 +258,12 @@ impl FileProcessor {
         show_offset: bool,
         progress: &mut ProgressIndicator,
     ) -> Result<()> {
-        let buffer_size = self.config.get_buffer_size(width);
         let buffer_padding = self.config.buffer_padding;
 
         let mut line = 0;
         let mut last_hit_pos: i64 = -1;
+        let mut absolute_pos = reader.stream_position()?;
+        let mut carry = Vec::new();
 
         // For EWF files, we need to get size differently
         // For now, we'll use a large default for generic readers
@@ -225,7 +272,6 @@ impl FileProcessor {
         let hex_offset_length = OutputFormatter::calculate_hex_offset_length(file_size);
 
         loop {
-            let start_offset = reader.stream_position()?;
             let bytes_read = self.buffer_manager.read_into_main(reader)?;
 
             if bytes_read == 0 {
@@ -235,67 +281,30 @@ impl FileProcessor {
             // Update progress
             progress.update(bytes_read as u64);
 
-            // Process regex matches directly without collecting into vector
-            let buffer_slice = self.buffer_manager.get_main_slice(0, bytes_read);
-            let mut matches_to_process = Vec::new();
+            let current_data = self.buffer_manager.get_main_slice(0, bytes_read);
+            let base_offset = absolute_pos.saturating_sub(carry.len() as u64);
+            let mut search_buffer = Vec::with_capacity(carry.len() + bytes_read);
+            search_buffer.extend_from_slice(&carry);
+            search_buffer.extend_from_slice(current_data);
 
-            // Only collect match positions that we actually need to process
-            for mat in regex.find_iter(buffer_slice) {
+            for mat in regex.find_iter(&search_buffer) {
                 let match_start = mat.start();
-                let new_hit_pos = start_offset + match_start as u64;
+                let new_hit_pos = base_offset + match_start as u64;
 
-                // Skip duplicates early
-                if new_hit_pos as i64 > last_hit_pos {
-                    matches_to_process.push(match_start);
-                    // Limit collection for memory efficiency
-                    if limit > 0 && matches_to_process.len() >= limit - line {
-                        break;
-                    }
-                }
-            }
-
-            for match_start in matches_to_process {
-                let new_hit_pos = start_offset + match_start as u64;
-
-                // Prevent duplicates
                 if new_hit_pos as i64 <= last_hit_pos {
-                    continue;
-                }
-
-                // Handle buffer boundary cases safely
-                // Check if the match extends beyond the current buffer and we're at buffer capacity
-                if let Some(overflow_pos) = match_start.checked_add(width) {
-                    if overflow_pos > bytes_read && bytes_read == self.buffer_manager.get_buffer_size() {
-                        // Pattern extends beyond buffer - need to seek to match position for complete read
-                        reader.seek(SeekFrom::Start(new_hit_pos))?;
-                        last_hit_pos = new_hit_pos as i64;
-                        break;
-                    }
-                } else {
-                    // Integer overflow would occur - skip this match
                     continue;
                 }
 
                 line += 1;
 
-                // Read width bytes from match position
-                let (hex_string, match_info) = self.read_match_data_with_highlight(
-                    reader,
-                    match_start,
-                    width,
-                    bytes_read,
-                    start_offset,
-                    separator,
-                    &regex,
-                )?;
+                let display_end = match_start.saturating_add(width).min(search_buffer.len());
+                let display_data = &search_buffer[match_start..display_end];
+                let hex_string = OutputFormatter::format_bytes_as_hex(display_data, separator);
+                let match_info = regex.find(display_data).map(|matched| matched.len());
 
                 // Calculate match position within the displayed hex string
-                let match_byte_pos = if match_start < width { Some(0) } else { None };
-                let match_byte_len = if match_byte_pos.is_some() {
-                    match_info.map(|len| std::cmp::min(len, width))
-                } else {
-                    None
-                };
+                let match_byte_pos = Some(0);
+                let match_byte_len = match_info.map(|len| std::cmp::min(len, width));
 
                 OutputFormatter::print_line_with_match_highlight_silent(
                     new_hit_pos,
@@ -315,107 +324,21 @@ impl FileProcessor {
                 }
             }
 
-            // Read next buffer with overlap to handle patterns spanning boundaries
-            if bytes_read == buffer_size {
-                let new_pos = reader
-                    .stream_position()?
-                    .saturating_sub(buffer_padding as u64);
-                reader.seek(SeekFrom::Start(new_pos))?;
-            }
+            let carry_len = buffer_padding.min(search_buffer.len());
+            carry.clear();
+            carry.extend_from_slice(&search_buffer[search_buffer.len() - carry_len..]);
+            absolute_pos += bytes_read as u64;
         }
 
         progress.finish();
         Ok(())
-    }
-
-    /// Read match data, handling cases where width extends beyond buffer
-    #[allow(dead_code)]
-    fn read_match_data(
-        &mut self,
-        file: &mut File,
-        match_start: usize,
-        width: usize,
-        bytes_read: usize,
-        start_offset: u64,
-        separator: &str,
-    ) -> Result<String> {
-        self.read_match_data_generic(file, match_start, width, bytes_read, start_offset, separator)
-    }
-
-    /// Read match data with highlighting information
-    fn read_match_data_with_highlight<R: Read + Seek>(
-        &mut self,
-        reader: &mut R,
-        match_start: usize,
-        width: usize,
-        bytes_read: usize,
-        start_offset: u64,
-        separator: &str,
-        regex: &Regex,
-    ) -> Result<(String, Option<usize>)> {
-        let hex_string = self.read_match_data_generic(reader, match_start, width, bytes_read, start_offset, separator)?;
-
-        // Find the match length by re-running the regex on the data we're about to display
-        let display_start = start_offset + match_start as u64;
-        let current_pos = reader.stream_position()?;
-        reader.seek(SeekFrom::Start(display_start))?;
-
-        let mut display_buffer = vec![0u8; width];
-        let actual_read = reader.read(&mut display_buffer)?;
-        reader.seek(SeekFrom::Start(current_pos))?;
-
-        let match_len = if let Some(mat) = regex.find(&display_buffer[..actual_read]) {
-            Some(mat.len())
-        } else {
-            None
-        };
-
-        Ok((hex_string, match_len))
-    }
-
-    /// Generic read match data function that works with any Read + Seek reader
-    fn read_match_data_generic<R: Read + Seek>(
-        &mut self,
-        reader: &mut R,
-        match_start: usize,
-        width: usize,
-        bytes_read: usize,
-        start_offset: u64,
-        separator: &str,
-    ) -> Result<String> {
-        let end_pos = std::cmp::min(match_start + width, bytes_read);
-        let actual_width = end_pos - match_start;
-
-        if actual_width < width && match_start + width > bytes_read {
-            // Need to read additional data from reader
-            let current_pos = reader.stream_position()?;
-            reader.seek(SeekFrom::Start(start_offset + end_pos as u64))?;
-
-            let extra_needed = width - actual_width;
-            let extra_read = self.buffer_manager.read_into_extra(reader, extra_needed)?;
-
-            // Combine data using buffer manager
-            let combined_data =
-                self.buffer_manager
-                    .combine_buffers(match_start, end_pos, extra_read);
-
-            reader.seek(SeekFrom::Start(current_pos))?;
-
-            Ok(OutputFormatter::format_bytes_as_hex(
-                combined_data,
-                separator,
-            ))
-        } else {
-            let main_slice = self.buffer_manager.get_main_slice(match_start, end_pos);
-            Ok(OutputFormatter::format_bytes_as_hex(main_slice, separator))
-        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
+    use std::io::{SeekFrom, Write};
     use tempfile::NamedTempFile;
 
     #[test]
@@ -440,7 +363,8 @@ mod tests {
 
         // This would normally print, but in tests we just verify it doesn't error
         let mut progress = ProgressIndicator::disabled();
-        let result = processor.process_file_stream(&mut file, 16, 1, " ", false, file_size, &mut progress);
+        let result =
+            processor.process_file_stream(&mut file, 16, 1, " ", false, file_size, &mut progress);
         assert!(result.is_ok());
 
         Ok(())

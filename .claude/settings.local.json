@@ -35,7 +35,9 @@
       "Bash(del err.txt)",
       "Bash(xxd err.txt)",
       "Bash(rm -f err.txt)",
-      "PowerShell(cd \"c:\\\\Users\\\\ghost\\\\Documents\\\\repo\\\\hxgrep\"; $p = New-Object System.Diagnostics.ProcessStartInfo; $p.FileName = \"target\\\\debug\\\\hxgrep.exe\"; $p.Arguments = \"/tmp/bingrep_non_existent_file_12345.bin\"; $p.RedirectStandardError = $true; $p.UseShellExecute = $false; $proc = [System.Diagnostics.Process]::Start\\($p\\); $stderr = $proc.StandardError.ReadToEnd\\(\\); $proc.WaitForExit\\(\\); $bytes = [System.Text.Encoding]::UTF8.GetBytes\\($stderr\\); Write-Output \"Hex: $\\(\\($bytes | ForEach-Object { $_.ToString\\('X2'\\) }\\) -join ' '\\)\"; Write-Output \"Text: $stderr\")"
+      "PowerShell(cd \"c:\\\\Users\\\\ghost\\\\Documents\\\\repo\\\\hxgrep\"; $p = New-Object System.Diagnostics.ProcessStartInfo; $p.FileName = \"target\\\\debug\\\\hxgrep.exe\"; $p.Arguments = \"/tmp/bingrep_non_existent_file_12345.bin\"; $p.RedirectStandardError = $true; $p.UseShellExecute = $false; $proc = [System.Diagnostics.Process]::Start\\($p\\); $stderr = $proc.StandardError.ReadToEnd\\(\\); $proc.WaitForExit\\(\\); $bytes = [System.Text.Encoding]::UTF8.GetBytes\\($stderr\\); Write-Output \"Hex: $\\(\\($bytes | ForEach-Object { $_.ToString\\('X2'\\) }\\) -join ' '\\)\"; Write-Output \"Text: $stderr\")",
+      "PowerShell(cargo build 2>&1)",
+      "PowerShell(tail -5)"
     ],
     "deny": [],
     "ask": []
