@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "=== hxgrep 테스트 스위트 ==="
+echo "=== hexsift 테스트 스위트 ==="
 echo
 
 # 디버그 빌드

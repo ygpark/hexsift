@@ -1,13 +1,13 @@
 use clap::Parser;
-use hxgrep::cli::Cli;
-use hxgrep::config::Config;
-use hxgrep::error::Result;
-use hxgrep::multifile::MultiFileProcessor;
-use hxgrep::output::OutputFormatter;
-use hxgrep::parallel::{ParallelHexDump, ParallelProcessor};
-use hxgrep::progress::ProgressIndicator;
-use hxgrep::regex_processor::RegexProcessor;
-use hxgrep::stream::FileProcessor;
+use hexsift::cli::Cli;
+use hexsift::config::Config;
+use hexsift::error::Result;
+use hexsift::multifile::MultiFileProcessor;
+use hexsift::output::OutputFormatter;
+use hexsift::parallel::{ParallelHexDump, ParallelProcessor};
+use hexsift::progress::ProgressIndicator;
+use hexsift::regex_processor::RegexProcessor;
+use hexsift::stream::FileProcessor;
 use std::fs::File;
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
@@ -21,7 +21,7 @@ fn validate_file_path(path: &str) -> Result<PathBuf> {
         .components()
         .any(|component| matches!(component, std::path::Component::ParentDir))
     {
-        return Err(hxgrep::error::BingrepError::InvalidPath(
+        return Err(hexsift::error::BingrepError::InvalidPath(
             "Path contains parent directory references (..)".to_string(),
         ));
     }
@@ -35,7 +35,7 @@ fn validate_file_path(path: &str) -> Result<PathBuf> {
             if path.is_absolute() || path.components().count() == 1 {
                 Ok(path.to_path_buf())
             } else {
-                Err(hxgrep::error::BingrepError::InvalidPath(
+                Err(hexsift::error::BingrepError::InvalidPath(
                     "Invalid or inaccessible file path".to_string(),
                 ))
             }
@@ -47,7 +47,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     // Set global color choice
-    hxgrep::color_context::set_color_choice(cli.color.clone());
+    hexsift::color_context::set_color_choice(cli.color.clone());
 
     // Check file path or stdin
     let file_path = match &cli.file_path {
@@ -62,9 +62,9 @@ fn main() -> Result<()> {
         None => {
             // Clap will automatically show help when no file path is provided
             eprintln!("Error: 파일 경로가 필요합니다.\n");
-            eprintln!("사용법: hxgrep <파일경로> [옵션]");
-            eprintln!("사용법: hxgrep - [옵션] < input_file (stdin)");
-            eprintln!("도움말: hxgrep --help");
+            eprintln!("사용법: hexsift <파일경로> [옵션]");
+            eprintln!("사용법: hexsift - [옵션] < input_file (stdin)");
+            eprintln!("도움말: hexsift --help");
             return Ok(());
         }
     };
@@ -96,10 +96,10 @@ fn main() -> Result<()> {
     let mut processor = FileProcessor::new(config.clone());
 
     // Check if this is a forensic image file (E01, VMDK) and handle accordingly
-    if hxgrep::forensic_image::is_forensic_image_path(&file_path)? {
+    if hexsift::forensic_image::is_forensic_image_path(&file_path)? {
         // Process forensic image file - parallel processing not supported for forensic images yet
         let format_name =
-            hxgrep::forensic_image::detect_format_name(&file_path)?.unwrap_or("Unknown");
+            hexsift::forensic_image::detect_format_name(&file_path)?.unwrap_or("Unknown");
         eprintln!(
             "Detected {} forensic image: {}",
             format_name,

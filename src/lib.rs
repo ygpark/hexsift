@@ -1,4 +1,4 @@
-//! # hxgrep
+//! # hexsift
 //!
 //! A binary file regular expression search tool written in Rust.
 //!
@@ -18,7 +18,7 @@
 //! ## Example Usage
 //!
 //! ```no_run
-//! use hxgrep::{Config, RegexProcessor, FileProcessor};
+//! use hexsift::{Config, RegexProcessor, FileProcessor};
 //! use std::fs::File;
 //!
 //! let config = Config::default();

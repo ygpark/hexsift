@@ -1,10 +1,10 @@
-# hxgrep
+# hexsift
 
 고성능 바이너리 파일 검색 및 16진수 표시 도구
 
 ## 개요
 
-hxgrep은 바이너리 파일을 16진수로 표시하고 정규표현식 패턴을 검색하는 Rust 기반 도구입니다. 대용량 파일의 효율적인 처리와 포렌식 이미지 분석을 위해 설계되었습니다.
+hexsift은 바이너리 파일을 16진수로 표시하고 정규표현식 패턴을 검색하는 Rust 기반 도구입니다. 대용량 파일의 효율적인 처리와 포렌식 이미지 분석을 위해 설계되었습니다.
 
 ## 주요 기능
 
@@ -20,11 +20,11 @@ hxgrep은 바이너리 파일을 16진수로 표시하고 정규표현식 패턴
 
 ```bash
 git clone <repository-url>
-cd hxgrep
+cd hexsift
 cargo build --release
 ```
 
-빌드된 바이너리는 `./target/release/hxgrep`에 생성됩니다.
+빌드된 바이너리는 `./target/release/hexsift`에 생성됩니다.
 
 ## 사용법
 
@@ -32,16 +32,16 @@ cargo build --release
 
 ```bash
 # 파일을 16진수로 표시
-hxgrep file.bin
+hexsift file.bin
 
 # 정규표현식으로 패턴 검색
-hxgrep file.bin -e "\x00\x00\x00\x01\x67"
+hexsift file.bin -e "\x00\x00\x00\x01\x67"
 
 # stdin에서 입력 받기
-cat file.bin | hxgrep -
+cat file.bin | hexsift -
 
 # 한 줄에 8바이트씩 표시
-hxgrep file.bin -w 8
+hexsift file.bin -w 8
 ```
 
 ### 명령줄 옵션
@@ -63,43 +63,43 @@ hxgrep file.bin -w 8
 
 ```bash
 # SPS (Sequence Parameter Set) 검색
-hxgrep video.mp4 -e "\x00\x00\x00\x01\x67"
+hexsift video.mp4 -e "\x00\x00\x00\x01\x67"
 
 # NAL unit 시작 코드 (유연한 패턴)
-hxgrep video.mp4 -e "\x00{2,3}\x01"
+hexsift video.mp4 -e "\x00{2,3}\x01"
 ```
 
 ### 실행 파일 분석
 
 ```bash
 # PE 헤더 검색
-hxgrep program.exe -e "\x4D\x5A"
+hexsift program.exe -e "\x4D\x5A"
 
 # ELF 헤더 검색
-hxgrep program -e "\x7F\x45\x4C\x46"
+hexsift program -e "\x7F\x45\x4C\x46"
 ```
 
 ### 포렌식 분석
 
 ```bash
 # E01 포렌식 이미지 분석
-hxgrep evidence.E01 -e "\x53\x51\x4C\x69\x74\x65"
+hexsift evidence.E01 -e "\x53\x51\x4C\x69\x74\x65"
 
 # 멀티파일 검색
-hxgrep "*.bin" --multi-file -e "\xFF\xD8\xFF"
+hexsift "*.bin" --multi-file -e "\xFF\xD8\xFF"
 ```
 
 ### 정규표현식 수량자
 
 ```bash
 # 정확히 4개의 NULL 바이트
-hxgrep file.bin -e "\x00{4}"
+hexsift file.bin -e "\x00{4}"
 
 # 2-4개의 NULL 바이트
-hxgrep file.bin -e "\x00{2,4}"
+hexsift file.bin -e "\x00{2,4}"
 
 # 1개 이상의 0xFF 바이트
-hxgrep file.bin -e "\xFF+"
+hexsift file.bin -e "\xFF+"
 ```
 
 ## 개발

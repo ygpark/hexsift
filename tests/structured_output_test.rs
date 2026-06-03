@@ -1,4 +1,4 @@
-use hxgrep::structured_output::{BinaryMatch, HexDumpLine, OutputFormat, StructuredFormatter};
+use hexsift::structured_output::{BinaryMatch, HexDumpLine, OutputFormat, StructuredFormatter};
 
 #[test]
 fn test_binary_match_creation() {

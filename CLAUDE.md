@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-hxgrep is a Rust-based binary file search tool that displays files in hexadecimal format and searches for regex patterns in binary data. It supports hexadecimal escape sequences (\xHH format) and is optimized for large file processing with streaming and parallel capabilities.
+hexsift is a Rust-based binary file search tool that displays files in hexadecimal format and searches for regex patterns in binary data. It supports hexadecimal escape sequences (\xHH format) and is optimized for large file processing with streaming and parallel capabilities.
 
 ## Development Commands
 

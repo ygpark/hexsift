@@ -7,7 +7,7 @@ fn get_binary_path() -> PathBuf {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     path.push("target");
     path.push("debug");
-    path.push("hxgrep");
+    path.push("hexsift");
     path
 }
 
@@ -337,6 +337,6 @@ fn test_version_output() {
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     // 버전 정보가 출력되는지 확인
-    assert!(stdout.contains("hxgrep"));
+    assert!(stdout.contains("hexsift"));
     assert!(stdout.contains("0.1.0"));
 }

@@ -1,7 +1,7 @@
 use clap::{Parser, ValueEnum};
 
 #[derive(Parser)]
-#[command(name = "hxgrep")]
+#[command(name = "hexsift")]
 #[command(about = "바이너리 파일 정규표현식 검색 도구")]
 #[command(version = "0.1.0")]
 #[command(long_about = "바이너리 파일을 정규표현식으로 검색하는 도구입니다.
@@ -9,11 +9,11 @@ use clap::{Parser, ValueEnum};
 이 프로그램의 정규표현식은 Rust regex 라이브러리의 문법을 따릅니다.
 
 Example 01 파일 내용을 HEX값으로 출력:
-    hxgrep \"path_to_file.txt\"
-    hxgrep \"path_to_file.txt\" -n 10    (10줄만 출력)
+    hexsift \"path_to_file.txt\"
+    hexsift \"path_to_file.txt\" -n 10    (10줄만 출력)
 
 Example 02 파일 내용을 정규표현식으로 검색:
-    hxgrep \"path_to_file.txt\" -e \"\\x00\\x00\\x00\\x01\\x67\" -w 100")]
+    hexsift \"path_to_file.txt\" -e \"\\x00\\x00\\x00\\x01\\x67\" -w 100")]
 pub struct Cli {
     /// 입력 파일 경로 또는 glob 패턴 (예: "*.bin", "data/**/*.txt")
     pub file_path: Option<String>,
