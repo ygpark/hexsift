@@ -6,7 +6,8 @@ use hexsift::multifile::MultiFileProcessor;
 use hexsift::output::OutputFormatter;
 use hexsift::parallel::{ParallelHexDump, ParallelProcessor};
 use hexsift::physical_device::{
-    format_drive_size, is_physical_drive_path, list_physical_drives, PHYSICAL_DEVICE_SIZE_FALLBACK,
+    format_drive_details, format_drive_size, format_sector_size, get_physical_drive_size,
+    is_physical_drive_path, list_physical_drives, PHYSICAL_DEVICE_SIZE_FALLBACK,
 };
 use hexsift::progress::ProgressIndicator;
 use hexsift::regex_processor::RegexProcessor;
@@ -122,7 +123,7 @@ fn main() -> Result<()> {
             }
             Err(err) => return Err(err.into()),
         };
-        let file_size = get_stream_size_or_default(&mut file, PHYSICAL_DEVICE_SIZE_FALLBACK);
+        let file_size = get_physical_drive_size(&mut file).unwrap_or(PHYSICAL_DEVICE_SIZE_FALLBACK);
 
         file.seek(SeekFrom::Start(cli.position))?;
 
@@ -266,27 +267,6 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn get_stream_size_or_default(file: &mut File, default_size: u64) -> u64 {
-    let current_pos = file.stream_position().ok();
-    let size = file
-        .seek(SeekFrom::End(0))
-        .ok()
-        .filter(|size| *size > 0)
-        .or_else(|| {
-            file.metadata()
-                .ok()
-                .map(|metadata| metadata.len())
-                .filter(|size| *size > 0)
-        })
-        .unwrap_or(default_size);
-
-    if let Some(pos) = current_pos {
-        let _ = file.seek(SeekFrom::Start(pos));
-    }
-
-    size
-}
-
 fn handle_list_disks() -> Result<()> {
     let drives = list_physical_drives();
 
@@ -295,7 +275,10 @@ fn handle_list_disks() -> Result<()> {
         return Ok(());
     }
 
-    println!("{:<22} {:>12}  {}", "Path", "Size", "Status");
+    println!(
+        "{:<22} {:>12}  {:>8}  {:<14}  {}",
+        "Path", "Size", "Sector", "Status", "Details"
+    );
     for drive in drives {
         let status = if drive.accessible {
             "accessible".to_string()
@@ -304,10 +287,12 @@ fn handle_list_disks() -> Result<()> {
         };
 
         println!(
-            "{:<22} {:>12}  {}",
+            "{:<22} {:>12}  {:>8}  {:<14}  {}",
             drive.path,
             format_drive_size(drive.size),
-            status
+            format_sector_size(drive.metadata.bytes_per_sector),
+            status,
+            format_drive_details(&drive.metadata)
         );
     }
 
