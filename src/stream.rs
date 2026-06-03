@@ -11,7 +11,6 @@ use std::path::Path;
 
 /// File processor for handling binary file searching and hex dump operations
 pub struct FileProcessor {
-    config: Config,
     buffer_manager: BufferManager,
 }
 
@@ -26,10 +25,7 @@ impl FileProcessor {
         let max_extra_size = config.max_line_width.max(1024); // At least 1KB for extra buffer
         let buffer_manager = BufferManager::new(buffer_size, max_extra_size);
 
-        Self {
-            config,
-            buffer_manager,
-        }
+        Self { buffer_manager }
     }
 
     /// Process file without regex - simple hex dump
@@ -191,6 +187,7 @@ impl FileProcessor {
         limit: usize,
         separator: &str,
         show_offset: bool,
+        overlap_size: usize,
         progress: &mut ProgressIndicator,
     ) -> Result<()> {
         let file_path = file_path.as_ref();
@@ -205,6 +202,7 @@ impl FileProcessor {
                 limit,
                 separator,
                 show_offset,
+                overlap_size,
                 progress,
             )
         } else {
@@ -217,6 +215,7 @@ impl FileProcessor {
                 limit,
                 separator,
                 show_offset,
+                overlap_size,
                 progress,
             )
         }
@@ -242,9 +241,19 @@ impl FileProcessor {
         limit: usize,
         separator: &str,
         show_offset: bool,
+        overlap_size: usize,
         progress: &mut ProgressIndicator,
     ) -> Result<()> {
-        self.process_reader_by_regex(file, regex, width, limit, separator, show_offset, progress)
+        self.process_reader_by_regex(
+            file,
+            regex,
+            width,
+            limit,
+            separator,
+            show_offset,
+            overlap_size,
+            progress,
+        )
     }
 
     /// Generic regex processing function that works with any Read + Seek reader
@@ -256,9 +265,10 @@ impl FileProcessor {
         limit: usize,
         separator: &str,
         show_offset: bool,
+        overlap_size: usize,
         progress: &mut ProgressIndicator,
     ) -> Result<()> {
-        let buffer_padding = self.config.buffer_padding;
+        let buffer_padding = overlap_size;
 
         let mut line = 0;
         let mut last_hit_pos: i64 = -1;
@@ -345,7 +355,7 @@ mod tests {
     fn test_file_processor_creation() {
         let config = Config::default();
         let processor = FileProcessor::new(config);
-        assert_eq!(processor.config.buffer_size, 4 * 1024 * 1024);
+        assert_eq!(processor.buffer_manager.get_buffer_size(), 4 * 1024 * 1024);
     }
 
     #[test]

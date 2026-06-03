@@ -17,7 +17,10 @@ Example 02 파일 내용을 정규표현식으로 검색:
 
 Example 03 Windows 물리 디스크 검색 (관리자 권한 필요):
     hexsift --list-disks
-    hexsift \"\\\\.\\PHYSICALDRIVE0\" -e \"\\x00\\x00\\x01\\x67\"")]
+    hexsift \"\\\\.\\PHYSICALDRIVE0\" -e \"\\x00\\x00\\x01\\x67\"
+
+Example 04 임의의 32바이트 뒤에 오는 시그니처 검색:
+    hexsift \"\\\\.\\PHYSICALDRIVE0\" -e \"(?s-u).{32}\\x00\\x00\\x00\\x01\\x67\" -w 37")]
 pub struct Cli {
     /// 입력 파일 경로 또는 glob 패턴 (예: "*.bin", "data/**/*.txt")
     pub file_path: Option<String>,

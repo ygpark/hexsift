@@ -167,6 +167,8 @@ impl MultiFileProcessor {
 
             if let Some(expr) = expression {
                 let regex = RegexProcessor::compile_pattern(expr)?;
+                let overlap_size =
+                    RegexProcessor::overlap_for_expression(expr, self.config.buffer_padding);
                 processor.process_stream_by_regex_from_path(
                     path,
                     &regex,
@@ -174,6 +176,7 @@ impl MultiFileProcessor {
                     limit,
                     separator,
                     show_offset,
+                    overlap_size,
                     &mut progress,
                 )?;
             } else {
@@ -196,6 +199,10 @@ impl MultiFileProcessor {
         if let Some(expr) = expression {
             // Regex search mode
             let regex = RegexProcessor::compile_pattern(expr)?;
+            let stream_overlap =
+                RegexProcessor::overlap_for_expression(expr, self.config.buffer_padding);
+            let parallel_overlap =
+                RegexProcessor::overlap_for_expression(expr, 1024.min(chunk_size / 10));
             let matches_before = Self::count_matches_in_output();
 
             if parallel && file_size > chunk_size as u64 {
@@ -208,6 +215,7 @@ impl MultiFileProcessor {
                     separator,
                     show_offset,
                     file_size,
+                    parallel_overlap,
                 )?;
             } else {
                 let mut processor = FileProcessor::new(self.config.clone());
@@ -219,6 +227,7 @@ impl MultiFileProcessor {
                     limit,
                     separator,
                     show_offset,
+                    stream_overlap,
                     &mut progress,
                 )?;
             }

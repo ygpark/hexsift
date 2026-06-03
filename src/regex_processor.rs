@@ -40,6 +40,24 @@ impl RegexProcessor {
         Regex::new(&pattern).map_err(BingrepError::from)
     }
 
+    /// Calculate the overlap needed for simple literal hex byte patterns.
+    ///
+    /// For a pure `\xHH\xHH...` pattern, `len - 1` bytes of overlap are enough
+    /// to catch matches that cross read or chunk boundaries. More complex regex
+    /// patterns fall back to the configured default because their maximum match
+    /// length may be variable or unbounded.
+    pub fn overlap_for_expression(expression: &str, default_overlap: usize) -> usize {
+        if expression.contains("\\x") && !Self::has_regex_metacharacters(expression) {
+            if let Ok(bytes) = Self::parse_hex_pattern(expression) {
+                if !bytes.is_empty() {
+                    return bytes.len().saturating_sub(1);
+                }
+            }
+        }
+
+        default_overlap
+    }
+
     /// Parse \xHH sequences into bytes
     ///
     /// Extracts hexadecimal byte values from a pattern string containing \xHH sequences.
@@ -238,6 +256,22 @@ mod tests {
     fn test_compile_pattern_with_quantifier() {
         let result = RegexProcessor::compile_pattern("\\x58{2,3}");
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_overlap_for_simple_hex_expression() {
+        assert_eq!(
+            RegexProcessor::overlap_for_expression("\\x00\\x01\\x02\\x03", 8192),
+            3
+        );
+    }
+
+    #[test]
+    fn test_overlap_for_complex_regex_falls_back() {
+        assert_eq!(
+            RegexProcessor::overlap_for_expression("\\x58{2,3}", 8192),
+            8192
+        );
     }
 
     #[test]

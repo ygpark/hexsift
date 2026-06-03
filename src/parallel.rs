@@ -32,15 +32,12 @@ impl ParallelProcessor {
         separator: &str,
         show_offset: bool,
         file_size: u64,
+        overlap_size: usize,
     ) -> Result<()> {
         let hex_offset_length = OutputFormatter::calculate_hex_offset_length(file_size);
         let mut all_matches = Vec::new();
         let mut current_pos = file.stream_position()?;
         let mut match_count = 0;
-
-        // Calculate overlap size based on potential pattern length
-        // This ensures patterns that span chunk boundaries are not missed
-        let overlap_size = 1024.min(chunk_size / 10); // 10% overlap, max 1KB
 
         while current_pos < file_size {
             let remaining = file_size - current_pos;

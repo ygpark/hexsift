@@ -131,6 +131,8 @@ fn main() -> Result<()> {
 
         if let Some(expression) = cli.expression {
             let regex = RegexProcessor::compile_pattern(&expression)?;
+            let overlap_size =
+                RegexProcessor::overlap_for_expression(&expression, config.buffer_padding);
             processor.process_stream_by_regex(
                 &mut file,
                 &regex,
@@ -138,6 +140,7 @@ fn main() -> Result<()> {
                 cli.limit,
                 &cli.separator,
                 !cli.no_offset,
+                overlap_size,
                 &mut progress,
             )?;
         } else {
@@ -171,6 +174,8 @@ fn main() -> Result<()> {
 
         if let Some(expression) = cli.expression {
             let regex = RegexProcessor::compile_pattern(&expression)?;
+            let overlap_size =
+                RegexProcessor::overlap_for_expression(&expression, config.buffer_padding);
             processor.process_stream_by_regex_from_path(
                 &file_path,
                 &regex,
@@ -178,6 +183,7 @@ fn main() -> Result<()> {
                 cli.limit,
                 &cli.separator,
                 !cli.no_offset,
+                overlap_size,
                 &mut progress,
             )?;
         } else {
@@ -212,6 +218,10 @@ fn main() -> Result<()> {
         // Process file with or without regex
         if let Some(expression) = cli.expression {
             let regex = RegexProcessor::compile_pattern(&expression)?;
+            let stream_overlap =
+                RegexProcessor::overlap_for_expression(&expression, config.buffer_padding);
+            let parallel_overlap =
+                RegexProcessor::overlap_for_expression(&expression, 1024.min(cli.chunk_size / 10));
 
             if cli.parallel && file_size > cli.chunk_size as u64 {
                 // Use parallel processing for large files
@@ -224,6 +234,7 @@ fn main() -> Result<()> {
                     &cli.separator,
                     !cli.no_offset,
                     file_size,
+                    parallel_overlap,
                 )?;
             } else {
                 // Use regular processing
@@ -234,6 +245,7 @@ fn main() -> Result<()> {
                     cli.limit,
                     &cli.separator,
                     !cli.no_offset,
+                    stream_overlap,
                     &mut progress,
                 )?;
             }

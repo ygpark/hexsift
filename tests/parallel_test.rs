@@ -114,6 +114,50 @@ fn test_parallel_vs_sequential() {
 }
 
 #[test]
+fn test_parallel_uses_dynamic_overlap_for_long_hex_pattern() {
+    let binary_path = get_binary_path();
+    let chunk_size = 4096usize;
+    let pattern_start = chunk_size - 600;
+    let pattern: Vec<u8> = (0..1100).map(|i| (i % 251) as u8).collect();
+    let expression = pattern
+        .iter()
+        .map(|byte| format!("\\x{:02x}", byte))
+        .collect::<String>();
+
+    let mut test_data = vec![0xFF; pattern_start];
+    test_data.extend_from_slice(&pattern);
+    test_data.extend_from_slice(&[0xFF; 100]);
+    let test_file = create_test_file(&test_data, "dynamic_overlap");
+
+    let output = Command::new(&binary_path)
+        .arg(&test_file)
+        .arg("-e")
+        .arg(&expression)
+        .arg("-w")
+        .arg(pattern.len().to_string())
+        .arg("--parallel")
+        .arg("--chunk-size")
+        .arg(chunk_size.to_string())
+        .output()
+        .expect("Failed to execute parallel command");
+
+    assert!(output.status.success(), "Parallel search failed");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.lines().count(), 1, "Expected one boundary match");
+    assert!(
+        stdout.contains("00 01 02 03 04 05 06 07"),
+        "Pattern prefix not found"
+    );
+    assert!(
+        stdout.contains("54 55 56 57 58 59 5A 5B"),
+        "Pattern suffix not found"
+    );
+
+    fs::remove_file(test_file).ok();
+}
+
+#[test]
 fn test_parallel_hex_dump() {
     let binary_path = get_binary_path();
 
